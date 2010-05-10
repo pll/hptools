@@ -1,0 +1,78 @@
+#!/usr/bin/python
+
+import logging
+logging.basicConfig(level=logging.WARNING)
+
+import sys, os
+
+from optparse import OptionParser,Option
+
+import urlparse
+for scheme in ('ssh', ):
+    if not scheme in urlparse.uses_netloc:
+        urlparse.uses_netloc += [scheme]
+    if not scheme in urlparse.uses_query:
+        urlparse.uses_query += [scheme]
+    
+import salib
+defaults = {
+    "saurl": None,
+    "sauser": None,
+    "sapass": None
+}
+
+for key in defaults:
+    value = os.getenv(key.upper())
+    if value != None:
+        defaults[key] = value
+
+usage = "usage: %prog --saurl <url> command [args...]"
+description = """Issue a single command to an HP storage array via SSH. The saurl contains the username and password on the commandline. DO NOT USE THIS COMMAND IF YOU ARE CONCERNED WITH THE SECURITY OF YOUR ILOs
+"""
+
+all_options = (
+    Option("-d", "--debug", action="store_true", default=False),
+    Option("-v", "--verbose", action="store_true", default=False),
+    Option("-n", "--dryrun", dest="liverun", action="store_false", default=True),
+    Option(
+        "-u", "--saurl", 
+        default=defaults["saurl"],
+        help="ex. ssh://user:pass@host", 
+        )    
+)
+
+if __name__ == "__main__":
+
+    logger = logging.getLogger(" ilocommand")
+
+    optparser = OptionParser(usage, option_list=all_options, 
+                             description=description)
+    (opt, args) = optparser.parse_args()
+
+    if opt.verbose:
+        logging.root.setLevel(logging.INFO)
+        logger.setLevel(logging.INFO)
+        logger.info(" set log level INFO")
+
+    if opt.debug:
+        logging.root.setLevel(logging.DEBUG)
+        logger.setLevel(logging.DEBUG)
+        logger.debug(" set log level DEBUG")
+
+    if opt.saurl == None:
+        # print usage and exit with return 1
+        logger.error(" missing required argument: --saurl")
+        optparser.print_help()
+        sys.exit(1)
+
+    url = urlparse.urlparse(opt.saurl)
+    
+    # if the default username is set and the URL username is NOT
+    sa = salib.Storage(url=opt.saurl)
+
+    # execute expects a variable list of string arguments
+    # so pass in a reference to the args list
+    result = sa.execute(*args)
+
+    print result
+    

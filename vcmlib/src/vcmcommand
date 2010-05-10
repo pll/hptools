@@ -1,0 +1,84 @@
+#!/usr/bin/python
+
+"""
+Issue a single command to an HP ILO instance and return the output.
+
+usage: ilocommand --ilo <ilourl> <command string>
+"""
+
+import logging
+logging.basicConfig(level=logging.WARNING)
+
+import sys, os
+
+from optparse import OptionParser,Option
+
+import urlparse
+for scheme in ('ssh', ):
+    if not scheme in urlparse.uses_netloc:
+        urlparse.uses_netloc += [scheme]
+    if not scheme in urlparse.uses_query:
+        urlparse.uses_query += [scheme]
+
+import vcmlib
+
+defaults = {
+    "vcmurl": None,
+    "vcmuser": None,
+    "vcmpass": None
+}
+
+for key in defaults:
+    value = os.getenv(key.upper())
+    if value != None:
+        defaults[key] = value
+
+usage = "usage: %prog --vcmurl <url> command [args...]"
+description = """Issue a single command to an HP Virtual Connection Manager via SSH. The vcmurl contains the username and password on the commandline. DO NOT USE THIS COMMAND IF YOU ARE CONCERNED WITH THE SECURITY OF YOUR VCMs
+"""
+
+all_options = (
+    Option("-d", "--debug", action="store_true", default=False),
+    Option("-v", "--verbose", action="store_true", default=False),
+    Option("-n", "--dryrun", dest="liverun", action="store_false", default=True),
+    Option(
+        "-u", "--vcmurl", 
+        default=defaults["vcmurl"],
+        help="ex. ssh://user:pass@host", 
+        )    
+)
+
+if __name__ == "__main__":
+    logger = logging.getLogger(" vcmcommand")
+
+    optparser = OptionParser(usage, option_list=all_options, 
+                             description=description)
+    (opt, args) = optparser.parse_args()
+
+    if opt.verbose:
+        logging.root.setLevel(logging.INFO)
+        logger.setLevel(logging.INFO)
+        logger.info(" set log level INFO")
+
+    if opt.debug:
+        logging.root.setLevel(logging.DEBUG)
+        logger.setLevel(logging.DEBUG)
+        logger.debug(" set log level DEBUG")
+
+    if opt.vcmurl == None:
+        # print usage and exit with return 1
+        logger.error(" missing required argument: --vcmurl")
+        optparser.print_help()
+        sys.exit(1)
+
+    url = urlparse.urlparse(opt.vcmurl)
+    
+    # if the default username is set and the URL username is NOT
+    vcm = vcmlib.VirtualConnectionManager(url=opt.vcmurl)
+
+    # execute expects a variable list of string arguments
+    # so pass in a reference to the args list
+    result = vcm.execute(*args)
+
+    print result
+

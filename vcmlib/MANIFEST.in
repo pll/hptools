@@ -1,0 +1,4 @@
+include VERSION BUILD
+include *.txt
+recursive-include examples *
+recursive-include doc *
