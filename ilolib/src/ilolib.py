@@ -100,7 +100,8 @@ class Ilo(object):
             try:
                 self._session.login(self._url.hostname, 
                                     self._url.username, 
-                                    self._url.password
+                                    self._url.password,
+                                    login_timeout=30
                                     )
             except ilossh.EOF, e:
                 raise IloError("cannot log into host '%s'" % self._url.hostname)
