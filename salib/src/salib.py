@@ -80,7 +80,8 @@ class Storage(object):
                                     self._url.username, 
                                     self._url.password,
                                     original_prompt = "\n# ",
-                                    auto_prompt_reset=False
+                                    auto_prompt_reset=False,
+                                    login_timeout=30
                                     )
             except sassh.EOF, e:
                 raise IloError("cannot log into host '%s'" % self._url.hostname)

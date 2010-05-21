@@ -49,7 +49,8 @@ class OpenAdministrator(object):
         self._session.login(self._url.hostname, 
                             self._url.username, self._url.password,
                             original_prompt = self._PROMPT,
-                            auto_prompt_reset = False)
+                            auto_prompt_reset = False,
+                            login_timeout=30)
 
         self._session.PROMPT=self._PROMPT
         logger.debug("Sending command")
