@@ -10,20 +10,20 @@ import sassh
 
 class Storage(object):
     """
-    This object allows command execution on a remote HP Ilo 2 instance.
+    This object allows command execution on a remote HP MSA instance.
 
-    ilo = Ilo(url="urlstring")
-    ilo = Ilo(hostname="myhost", username="username", password="password")
-    response = ilo.execute(commandstring)
-    response = ilo.execute("command", "argument0", "argument1"...)
-    value = ilo.show(path, attribute)
-    ilo.set(path, attribute, value)
+    msa = Msa(url="urlstring")
+    msa = Msa(hostname="myhost", username="username", password="password")
+    response = msa.execute(commandstring)
+    response = msa.execute("command", "argument0", "argument1"...)
+    value = msa.show(path, attribute)
+    msa.set(path, attribute, value)
 
     The communications protocol must be SSH
 
     """
 
-    _PROMPT = "\n# "
+    _PROMPT = "\r\n# (\r)?"
 
     def __init__(self, url):
         """
@@ -49,29 +49,41 @@ class Storage(object):
         self._session = None
 
     # def __del__(self):
-    #     """Remove any hanging connections on destruction of the Ilo object"""
+    #     """Remove any hanging connections on destruction of the Msa object"""
     #     pass
 
     def execute(self, *cmd):
         """
-        Execute a single command on a remote Ilo instance.
+        Execute a single command on a remote Msa instance.
         Return the resulting string
         """
+        logger = logging.getLogger(self.__class__.__name__ + ".execute")
 
         cmdstring = ' '.join(cmd)
+        logger.debug(" Command string = %s" % cmdstring)
+
         self.connect()
+        logger.debug("Connected: Sending command string")
         self._session.sendline(cmdstring)
+
         # add this if you want to suppress the command input echo
         #self._session.expect(cmdstring)
-        self._session.prompt()
+        logger.debug("Waiting for prompt after command")
+        self._session.prompt(timeout=30)
         response = self._session.before
-        #result = IloResult(self._session.before)
-        #node = IloNode(self._session.before)
+        logger.debug("Response = '%s'" % response)
+        logger.debug("session buffer = %s" % self._session.buffer)
+            
+
+        #result = MsaResult(self._session.before)
+        #node = MsaNode(self._session.before)
+        logger.debug("Disconnecting")
         self.disconnect()
         # return (result, node)
         return response
 
     def connect(self):
+        logger = logging.getLogger(self.__class__.__name__ + ".connect")
         if self._session == None:
             self._session = sassh.sassh()
             # catch bad host, or login failure
@@ -83,12 +95,20 @@ class Storage(object):
                                     auto_prompt_reset=False,
                                     login_timeout=30
                                     )
+                logger.debug("Logged in")
+                logger.debug("After = '%s'" % self._session.after)
             except sassh.EOF, e:
-                raise IloError("cannot log into host '%s'" % self._url.hostname)
+                logger.debug("Login failed: %s" % e.message)
+                raise MsaError("cannot log into host '%s'" % self._url.hostname)
 
+            logger.debug("Setting prompt to '%s'" % self._PROMPT)
             self._session.PROMPT = self._PROMPT
+            logger.debug("Setting pager off")
             self._session.sendline("set cli-parameters pager off")
-            self._session.prompt()
+            logger.debug("Waiting for first prompt after silencing the pager")
+            self._session.prompt(timeout=30)
+
+            logger.debug("session info = %s" % self._session.before)
 
     def disconnect(self):
         if self._session != None:
